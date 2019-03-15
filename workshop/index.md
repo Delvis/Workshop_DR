@@ -69,7 +69,7 @@ Think again about our CADOES dataset - **osteomics.com/CADOES**
 cadPC <- prcomp(cadoes, center = TRUE, scale. = TRUE)
 ```
 
-In R we can use `prcomp()` or `princomp()` functions, for performing a principal components analysis on the given data matrix.
+In R we can use `prcomp()` or `princomp()` functions, for performing a principal components analysis on any given data matrix.
 
 There are many other options as well in packages, like **FactoMineR**
 
