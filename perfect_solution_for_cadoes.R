@@ -1,9 +1,10 @@
+# Can we achieve a perfect solution for CADOES?
+
 cad <- readRDS("./workshop/cadoes.rds") # dataset with measurements from pelvic bones
 dim(cad)
 names(cad) # your can use scr() or summary() to have a better look at the data
 cadoes <- na.omit(cad[ , -c(1:2)]) # only the numbers (vertebral heights)
 str(cad)
-
 
 # t-SNE 
 
@@ -49,7 +50,6 @@ set.seed(1992)
 cadTEST <- umap_transform(test[,3:40], cadTRAIN)
 vizier::embed_plot(cadTEST, test$SEX,
                    title = "UMAP 2D mapping of CADOES (semi-supervised)")
-
 
 6/nrow(test) # Accuracy close to 91%
 

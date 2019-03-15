@@ -7,7 +7,7 @@ output: html_document
 
 ### Materials
 
-First we need to get data. There's not many datasets available on primatology but I found some:
+First we need to get data. There's not many datasets available on primatology but I found some that are quite interesting:
 
 1. *The evolution of primate general and cultural intelligence*
   * Simon M. Reader , Yfke Hager  and Kevin N. Laland
