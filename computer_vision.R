@@ -18,10 +18,6 @@ numTrain <- 10000
 set.seed(1)
 rows <- sample(1:nrow(train), numTrain)
 train <- train[rows,]
-# define fixed colors for visualizations after
-colors = rainbow(length(unique(train$label)))
-names(colors) = unique(train$label)
-
 
 # OK! Remember how to do a PCA? 
 digitsPC <- princomp(train[,-1])$scores[,1:2]
