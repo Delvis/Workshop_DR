@@ -10,4 +10,6 @@ install.packages("magrittr")
 
 # not mandatory
 library(slidify)
-install.packages("slidify")
+
+devtools::install_github("ramnathv/slidify")
+devtools::install_github("ramnathv/slidifyLibraries")

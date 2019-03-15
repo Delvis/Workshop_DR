@@ -123,7 +123,7 @@ autoplot(cadPC)
 
 --- 
 
-## Dimensionality reduction: but does it work?
+## Dimensionality reduction
 
 
 ```r
@@ -140,7 +140,7 @@ autoplot(cadPC, data = cad, colour = "SEX", loadings = TRUE,
 
 ---
 
-## Dimensionality reduction: it is not just about PCA
+## Dimensionality reduction algorithms
 
 #### Matrix factorization
 + Principal Component Analysis;
