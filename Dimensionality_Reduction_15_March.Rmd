@@ -1,0 +1,210 @@
+---
+title: "Dimensionality Reduction"
+author: "jcoelho"
+date: "15 March 2019"
+output: html_document
+---
+
+### Materials
+
+First we need to get data. There's not many datasets available on primatology but I found some:
+
+1. *The evolution of primate general and cultural intelligence*
+  * Simon M. Reader , Yfke Hager  and Kevin N. Laland
+  * Published:12 April 2011 https://doi.org/10.1098/rstb.2010.0342
+  * **DOWNLOAD**: https://lalandlab.st-andrews.ac.uk/primate-dataset/
+
+2. *Gombe chimpanzee personality*
+  * Alexander Weiss
+  * Last Updated: 2017-06-21 02:25 PM / DOI 10.17605/OSF.IO/S7D9D
+  * **DOWNLOAD**: https://osf.io/s7d9d/
+
+Nice, we have one dataset about tool-use (multiple species) and one about behaviour (single chimpanzee population). Two very different problems, but both can be approached by the same toolkit of methods we just described.
+ 
+```{r server, echo=FALSE, message=FALSE}
+knitr::opts_chunk$set(dev.args = list(type = "cairo"))
+library(magrittr) # pipes
+library(ggplot2) # library for graphics
+library(ggfortify) # biplots
+library(randomForest) # implementation of the RF algorithm
+library(uwot) # umap
+```
+ 
+ 
+### Objectives
+
+Learn what is a dimensional reduction technique: when to use, general purpose, practical applications.
+
+1. exploratory data analysis → Data visualization
+2. feature extraction → Data mining
+
+### Problem 1: Primate cognition dataset
+
+```{r read tools data}
+toolsRAW <- read.csv("./Data_ReaderHagerLalandPhilTrans2011.csv")
+tools_data <- toolsRAW[,3:13]
+str(tools_data) 
+```
+
+**Question 1:** How many possible ways to "visualize" the numerical variables?
+
+```{r biplot 1, fig.width=12}
+pairs(tools_data[,8:11])
+
+toolsPC <- prcomp(tools_data[,8:11], center = TRUE, scale. = TRUE)
+autoplot(toolsPC, data = tools_data, shape = FALSE, loadings = TRUE,
+         loadings.label = TRUE, colour = "Taxon")
+
+```
+
+**Question 2:** Which species is observation 43? What about 49 and 42?
+
+Great apes are just too different. See with your cursor
+
+
+```{r viz1, fig.width=12}
+vizier::embed_plotly(toolsPC$x, tools_data$GenusPurvis)
+```
+
+What if we remove them of the equation?
+
+```{r cognitive studies, fig.width=12}
+no_ga <- tools_data[tools_data$Great.ape == "No",] # remove great apes
+no_gaPC <- prcomp(no_ga[,8:11], center = TRUE, scale. = TRUE)
+autoplot(no_gaPC, data = no_ga, shape = FALSE, loadings = TRUE,
+         loadings.label = TRUE, colour = "Taxon")
+```
+
+"Zooming" in the rest of the data creates new outliers again...
+It's like there is almost a "fractaloid" jump in cognition. Or a literature bias towards studying intensivly the same few species.
+
+**Question 3:** What species are 18... and 29? Notice the directions of loading.
+
+```{r viz2, fig.width=12}
+vizier::embed_plotly(no_gaPC$x, no_ga$GenusPurvis)
+```
+
+We are running again and again unto the same problem. Is there a way to change the spread of the data so that we can have a good look at all species?
+
+What about using UMAP?
+
+```{r umap1, fig.width=12}
+
+pCoo <- umap(tools_data[,8:11], verbose = TRUE, n_neighbors = 2, spread = 10)
+vizier::embed_plotly(pCoo, tools_data$GenusPurvis, title = "Cognitition in Primates UMAP")
+
+```
+
+### Problem 2: Chimpanzee Personality
+
+```{r chimppp}
+##### load data
+
+chimpRaw <- read.csv("gombe_460.csv")
+str(chimpRaw)
+chimpPerson <- chimpRaw[,c(19:42)] # only getting the raw personality traits to built the unsupervised model
+
+```
+
+Free trick: NA removel using an unsupervised `randomForest` combined with `cmdscale` and `kmeans`
+
+**Estimating missing values**
+
+```{r missingdata, fig.width=12}
+
+### NA REMOVAL
+
+set.seed(1992)
+pre_rf <- randomForest(chimpPerson %>% na.roughfix, proximity = TRUE)
+personalityCoordinates <- (1 - pre_rf$proximity) %>% cmdscale()
+cl <- kmeans(personalityCoordinates, 5) # I arbitrarly picked 5, look at your plot to decide>
+vizier::embed_plot(personalityCoordinates, cl$cluster)
+
+new_x <- rfImpute(chimpPerson, cl$cluster %>% factor)[,-1] # removes any NA in your dataset, quite robust method
+```
+
+*UNSUPERVISED RANDOM FOREST*
+
+now that we have created alias for the missing values, let's recreate the random forest
+
+
+```{r urf, fig.width=12}
+
+set.seed(1992)
+rf <- randomForest(new_x, proximity = TRUE)
+personalityCoo <- (1 - rf$proximity) %>% cmdscale()
+
+# calculate the clusters using k-means.
+
+cl <- kmeans(personalityCoo, 4)
+vizier::embed_plot(personalityCoo, cl$cluster)
+vizier::embed_plot(personalityCoo, chimpRaw$chimpcode) # doesn't really seem discriminative, but this dataset has 128 indivudals, but only 460 observations!!!
+
+new_df <- cbind(chimpRaw, data.frame(personalityCoo))
+# X1 and X2 are the two components of the model generated just above, they work as coordinates for plotting personality
+indModel <- randomForest(X1 + X2 ~ dominance + extraversion + conscientiousness + agreeableness + neuroticism, data = new_df) # these are the variables I removed in the beginning, so to see if X1 and X2 are really about personality 
+varImpPlot(indModel, main = "Most important traits for creating the personality variables")
+
+ggplot(data = new_df, aes(x = X1, y = X2)) +
+  geom_point(aes(color = as.factor(new_df$sex), shape = as.factor(new_df$sex)), alpha = 0.7) +
+  labs(x = "First Component", y = "Second Component", color = "Sex", shape = "Sex") +
+  guides(color = guide_legend(), shape = guide_legend()) + theme_minimal()
+# Still there is a lot of overlap. But again, this dataset is not really optimal.
+
+# I'd say it's impossible to detect individuals based on personality traits observed 
+# at least with this dataset and observation protocol. Still let's have a look
+
+vizier::embed_plot(personalityCoo, new_df$chimpcode)
+```
+
+Yep. It's a mess. But with a dataset with far less individuals, and more observations, it might be possible.
+
+However, let's not give up right away in the sex estimation from personality traits. We have to remember the randomForest used was fully unsupervised.
+
+Obviously UMAP cannot solve the individualization problem, is just too hard, and we do not have enough data. Actually we are dealing with a very extreme case of the "Curse of dimensionality".
+
+```{r uwot, fig.width=12}
+
+library(uwot)
+pCoo <- umap(new_x, scale = TRUE, verbose = TRUE, y = new_df$chimpcode)
+vizier::embed_plot(pCoo, as.factor(new_df$chimpcode), title = "ID UMAP")
+
+```
+
+But what about separating the two sex classes...?
+
+```{r uwot2, fig.width=12}
+
+set.seed(1992)
+pCooS <- umap(new_x, scale = TRUE, verbose = TRUE, y = as.factor(new_df$sex), spread = 16)
+vizier::embed_plot(pCooS, as.factor(new_df$sex), title = "Chimpanzee Sex UMAP")
+
+```
+
+
+Yeah right. Perfect. Too perfect. Better than estimating pelvic measurements in human bones. That just can't be right.
+
+Let's do a **digital validation** of the algorithm.
+
+```{r, fig.width=12}
+## 75% of the sample size
+final_x <- cbind(new_df$sex, new_x)
+smp_size <- floor(0.75 * nrow(final_x))
+
+## set the seed to make your partition reproducible
+set.seed(1992)
+train_ind <- sample(seq_len(nrow(final_x)), size = smp_size)
+
+train <- final_x[train_ind, ]
+test <- final_x[-train_ind, ]
+set.seed(1992)
+chimpTRAIN <- umap(train[,-1], scale = TRUE, verbose = TRUE, y = as.factor(train[,1]), spread = 10, ret_model = TRUE)
+vizier::embed_plotly(chimpTRAIN$embedding, as.factor(train[,1]),
+                   title = "Chimpanzee Sex UMAP (semi-supervised)")
+
+set.seed(1992)
+cadTEST <- umap_transform(test[,-1], chimpTRAIN)
+vizier::embed_plotly(cadTEST, as.factor(test[,1]),
+                   title = "Chimpanzee Sex UMAP (semi-supervised) test")
+```
+
